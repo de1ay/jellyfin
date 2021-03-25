@@ -74,6 +74,7 @@ namespace MediaBrowser.Controller.MediaEncoding
                     { "qsv",                  hwEncoder + "_qsv" },
                     { hwEncoder + "_qsv",     hwEncoder + "_qsv" },
                     { "nvenc",                hwEncoder + "_nvenc" },
+                    { "nvmpi",                hwEncoder + "_nvmpi" },
                     { "amf",                  hwEncoder + "_amf" },
                     { "omx",                  hwEncoder + "_omx" },
                     { hwEncoder + "_v4l2m2m", hwEncoder + "_v4l2m2m" },
@@ -940,9 +941,11 @@ namespace MediaBrowser.Controller.MediaEncoding
             // Unable to force key frames using these encoders, set key frames by GOP.
             if (string.Equals(codec, "h264_qsv", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(codec, "h264_nvenc", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(codec, "h264_nvmpi", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(codec, "h264_amf", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(codec, "hevc_qsv", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(codec, "hevc_nvenc", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(codec, "hevc_nvmpi", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(codec, "hevc_amf", StringComparison.OrdinalIgnoreCase))
             {
                 args += gopArg;
@@ -973,11 +976,13 @@ namespace MediaBrowser.Controller.MediaEncoding
                 && !string.Equals(videoEncoder, "h264_qsv", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(videoEncoder, "h264_vaapi", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(videoEncoder, "h264_nvenc", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(videoEncoder, "h264_nvmpi", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(videoEncoder, "h264_amf", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(videoEncoder, "h264_v4l2m2m", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(videoEncoder, "hevc_qsv", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(videoEncoder, "hevc_vaapi", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(videoEncoder, "hevc_nvenc", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(videoEncoder, "hevc_nvmpi", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(videoEncoder, "hevc_amf", StringComparison.OrdinalIgnoreCase))
             {
                 param += " -pix_fmt yuv420p";
@@ -1068,7 +1073,9 @@ namespace MediaBrowser.Controller.MediaEncoding
                 param += " -look_ahead 0";
             }
             else if (string.Equals(videoEncoder, "h264_nvenc", StringComparison.OrdinalIgnoreCase) // h264 (h264_nvenc)
-                     || string.Equals(videoEncoder, "hevc_nvenc", StringComparison.OrdinalIgnoreCase)) // hevc (hevc_nvenc)
+                     || string.Equals(videoEncoder, "hevc_nvenc", StringComparison.OrdinalIgnoreCase) // hevc (hevc_nvenc)
+                     || string.Equals(videoEncoder, "h264_nvmpi", StringComparison.OrdinalIgnoreCase) // h264 (h264_nvmpi)
+                     || string.Equals(videoEncoder, "hevc_nvmpi", StringComparison.OrdinalIgnoreCase)) // hevc (hevc_nvmpi)
             {
                 // following preset will be deprecated in ffmpeg 4.4, use p1~p7 instead.
                 switch (encodingOptions.EncoderPreset)
@@ -1234,7 +1241,8 @@ namespace MediaBrowser.Controller.MediaEncoding
             // libx264, h264_qsv and h264_nvenc does not support Constrained Baseline profile, force Baseline in this case.
             if ((string.Equals(videoEncoder, "libx264", StringComparison.OrdinalIgnoreCase)
                  || string.Equals(videoEncoder, "h264_qsv", StringComparison.OrdinalIgnoreCase)
-                 || string.Equals(videoEncoder, "h264_nvenc", StringComparison.OrdinalIgnoreCase))
+                 || string.Equals(videoEncoder, "h264_nvenc", StringComparison.OrdinalIgnoreCase)
+                 || string.Equals(videoEncoder, "h264_nvmpi", StringComparison.OrdinalIgnoreCase))
                 && profile.Contains("baseline", StringComparison.OrdinalIgnoreCase))
             {
                 profile = "baseline";
@@ -1244,6 +1252,7 @@ namespace MediaBrowser.Controller.MediaEncoding
             if ((string.Equals(videoEncoder, "libx264", StringComparison.OrdinalIgnoreCase)
                  || string.Equals(videoEncoder, "h264_qsv", StringComparison.OrdinalIgnoreCase)
                  || string.Equals(videoEncoder, "h264_nvenc", StringComparison.OrdinalIgnoreCase)
+                 || string.Equals(videoEncoder, "h264_nvmpi", StringComparison.OrdinalIgnoreCase)
                  || string.Equals(videoEncoder, "h264_vaapi", StringComparison.OrdinalIgnoreCase))
                 && profile.Contains("high", StringComparison.OrdinalIgnoreCase))
             {
@@ -1990,6 +1999,8 @@ namespace MediaBrowser.Controller.MediaEncoding
             var isQsvHevcEncoder = outputVideoCodec.Contains("hevc_qsv", StringComparison.OrdinalIgnoreCase);
             var isNvdecDecoder = videoDecoder.Contains("cuda", StringComparison.OrdinalIgnoreCase);
             var isNvencEncoder = outputVideoCodec.Contains("nvenc", StringComparison.OrdinalIgnoreCase);
+            var isNvmpiDecoder = videoDecoder.Contains("nvmpi", StringComparison.OrdinalIgnoreCase);
+            var isNvmpiEncoder = outputVideoCodec.Contains("nvmpi", StringComparison.OrdinalIgnoreCase);
             var isTonemappingSupported = IsTonemappingSupported(state, options);
             var isVppTonemappingSupported = IsVppTonemappingSupported(state, options);
             var isTonemappingSupportedOnVaapi = string.Equals(options.HardwareAccelerationType, "vaapi", StringComparison.OrdinalIgnoreCase) && isVaapiDecoder && (isVaapiH264Encoder || isVaapiHevcEncoder);
@@ -2099,6 +2110,12 @@ namespace MediaBrowser.Controller.MediaEncoding
                 retStr = !outputSizeParam.IsEmpty
                     ? " -filter_complex \"[{0}:{1}]{4}[sub];[0:{2}]{3}[base];[base][sub]overlay,format=nv12|yuv420p,hwupload_cuda\""
                     : " -filter_complex \"[{0}:{1}]{4}[sub];[0:{2}][sub]overlay,format=nv12|yuv420p,hwupload_cuda\"";
+            }
+            else if (isNvmpiDecoder && isNvmpiEncoder)
+            {
+                retStr = !outputSizeParam.IsEmpty
+                    ? " -filter_complex \"[{0}:{1}]{4}[sub];[0:{2}]{3}[base];[base][sub]overlay,format=yuv420p\""
+                    : " -filter_complex \"[{0}:{1}]{4}[sub];[0:{2}][sub]overlay,format=yuv420p\"";
             }
 
             return string.Format(
@@ -3428,6 +3445,28 @@ namespace MediaBrowser.Controller.MediaEncoding
                             return encodingOptions.EnableEnhancedNvdecDecoder && IsCudaSupported()
                                 ? GetHwaccelType(state, encodingOptions, "vp9", isColorDepth10)
                                 : GetHwDecoderName(encodingOptions, "vp9_cuvid", "vp9", isColorDepth10);
+                    }
+                }
+                else if (string.Equals(encodingOptions.HardwareAccelerationType, "nvmpi", StringComparison.OrdinalIgnoreCase))
+                {
+                    switch (videoStream.Codec.ToLowerInvariant())
+                    {
+                        case "avc":
+                        case "h264":
+                            return GetHwDecoderName(encodingOptions, "h264_nvmpi", "h264", isColorDepth10);
+                        case "hevc":
+                        case "h265":
+                            return GetHwDecoderName(encodingOptions, "hevc_nvmpi", "hevc", isColorDepth10);
+                        case "mpeg2video":
+                            return GetHwDecoderName(encodingOptions, "mpeg2_nvmpi", "mpeg2video", isColorDepth10);
+                        case "vc1":
+                            return null;
+                        case "mpeg4":
+                            return null;
+                        case "vp8":
+                            return GetHwDecoderName(encodingOptions, "vp8_nvmpi", "vp8", isColorDepth10);
+                        case "vp9":
+                            return GetHwDecoderName(encodingOptions, "vp9_nvmpi", "vp9", isColorDepth10);
                     }
                 }
                 else if (string.Equals(encodingOptions.HardwareAccelerationType, "mediacodec", StringComparison.OrdinalIgnoreCase))

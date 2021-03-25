@@ -39,6 +39,11 @@ namespace MediaBrowser.MediaEncoding.Encoder
             "mpeg4_cuvid",
             "vp8_cuvid",
             "vp9_cuvid",
+            "h264_nvmpi",
+            "hevc_nvmpi",
+            "mpeg2_nvmpi",
+            "vp8_nvmpi",
+            "vp9_nvmpi",
             "h264_mmal",
             "mpeg2_mmal",
             "mpeg4_mmal",
@@ -80,6 +85,8 @@ namespace MediaBrowser.MediaEncoding.Encoder
             "hevc_qsv",
             "h264_nvenc",
             "hevc_nvenc",
+            "h264_nvmpi",
+            "hevc_nvmpi",
             "h264_vaapi",
             "hevc_vaapi",
             "h264_omx",
@@ -210,11 +217,11 @@ namespace MediaBrowser.MediaEncoding.Encoder
         internal Version GetFFmpegVersion(string output)
         {
             // For pre-built binaries the FFmpeg version should be mentioned at the very start of the output
-            var match = Regex.Match(output, @"^ffmpeg version n?((?:[0-9]+\.?)+)");
+            var match = Regex.Match(output, @"^ffmpeg version ([0-9|a-z]{7}-|n?)((?:[0-9]+\.?)+)");
 
             if (match.Success)
             {
-                if (Version.TryParse(match.Groups[1].Value, out var result))
+                if (Version.TryParse(match.Groups[2].Value, out var result))
                 {
                     return result;
                 }
